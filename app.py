@@ -33,15 +33,6 @@ folium.Circle(
 
 st_folium(m, width=700, height=450, returned_objects=[])
 
-# Column selection based on radius
-selected_column = f"{radius} mile radius"
-
-# Select Attribute, chosen radius column, and USA
-filtered_df = df[["Attribute", selected_column, "USA"]]
-
-# Display simple table
-st.dataframe(filtered_df, use_container_width=True)
-
 # --- Age Demographic Section ---
 st.subheader("Age Demographic Distribution (15+ Population)")
 
