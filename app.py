@@ -40,3 +40,32 @@ filtered_df = df[["Attribute", selected_column, "USA"]]
 
 # Display simple table
 st.dataframe(filtered_df, use_container_width=True)
+
+# --- Age Demographic Section ---
+st.subheader("Age Demographic Distribution (15+ Population)")
+
+# 1. Filter dataset for B01001 attributes
+age_df = df[df["Attribute"].str.contains(r"\[B01001\]", regex=True, na=False)].copy()
+
+# 2. Map age groups matching project notebook logic
+def age_group(attribute):
+    if any(x in attribute for x in ["15 to 17", "18 and 19", "20 years", "21 years", "22 to 24"]):
+        return "15–24"
+    elif any(x in attribute for x in ["25 to 29", "30 to 34"]):
+        return "25–34"
+    elif any(x in attribute for x in ["35 to 39", "40 to 44", "45 to 49", "50 to 54"]):
+        return "35–54"
+    else:
+        return "55+"
+
+age_df["Age Group"] = age_df["Attribute"].apply(age_group)
+
+# 3. Aggregate totals and reindex to preserve notebook ordering
+age_grouped = age_df.groupby("Age Group")[[selected_column, "USA"]].sum()
+age_grouped = age_grouped.reindex(["15–24", "25–34", "35–54", "55+"])
+
+# 4. Calculate percentage distributions across total population 15+
+age_pct = (age_grouped / age_grouped.sum()) * 100
+
+# 5. Display comparison chart (Selected Radius vs USA)
+st.bar_chart(age_pct)
