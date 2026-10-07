@@ -61,15 +61,116 @@ def age_group(attribute):
 
 age_df["Age Group"] = age_df["Attribute"].apply(age_group)
 
-# 3. Aggregate totals and reindex to preserve notebook ordering
-age_grouped = age_df.groupby("Age Group")[[selected_column, "USA"]].sum()
+# 3. Aggregate totals across 1 to 6 miles and USA, reindex order
+radius_cols = [f"{r} mile radius" for r in range(1, 7)]
+age_grouped = age_df.groupby("Age Group")[radius_cols + ["USA"]].sum()
 age_grouped = age_grouped.reindex(["15–24", "25–34", "35–54", "55+"])
 
 # 4. Calculate percentage distributions across total population 15+
 age_pct = (age_grouped / age_grouped.sum()) * 100
 
-# 5. Display comparison chart (Selected Radius vs USA)
-st.bar_chart(age_pct)
+# 5. Plot 100% stacked bar chart with Under-35 trend line, highlighting selected slider radius
+age_plot = age_pct.T.copy()
+age_plot.index = ["1 mile"] + [f"{r} miles" for r in range(2, 7)] + ["U.S."]
+
+fig_age, ax_age = plt.subplots(figsize=(10, 6))
+
+# 100% stacked bars
+age_plot.plot(
+    kind="bar",
+    stacked=True,
+    figsize=(10, 6),
+    width=0.7,
+    ax=ax_age
+)
+
+highlight_idx = radius - 1
+
+# Add percentage labels inside each segment and highlight active slider radius
+for container in ax_age.containers:
+    for bar_idx, bar in enumerate(container):
+        if bar_idx == highlight_idx:
+            bar.set_edgecolor("#e74c3c")
+            bar.set_linewidth(2.2)
+
+        height = bar.get_height()
+
+        # Only label segments large enough to read clearly
+        if height >= 7:
+            ax_age.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_y() + height / 2,
+                f"{height:.1f}%",
+                ha="center",
+                va="center",
+                fontsize=9,
+                fontweight="bold",
+                color="white"
+            )
+
+# Under-35 share = 15–24 + 25–34
+under_35 = (
+    age_plot["15–24"] +
+    age_plot["25–34"]
+)
+
+x = range(len(age_plot))
+
+# Trend line along the cumulative Under-35 boundary
+ax_age.plot(
+    x,
+    under_35,
+    marker="o",
+    linewidth=2.5,
+    color="black",
+    label="Under 35"
+)
+
+# Label Under-35 trend and highlight active slider radius
+for i, value in enumerate(under_35):
+    is_active = (i == highlight_idx)
+    text_color = "#e74c3c" if is_active else "black"
+    ax_age.text(
+        i,
+        value + 2,
+        f"Under 35: {value:.1f}%",
+        ha="center",
+        va="bottom",
+        fontsize=9,
+        fontweight="bold",
+        color=text_color
+    )
+    if is_active:
+        ax_age.scatter(i, value, color="#e74c3c", s=100, zorder=5)
+
+ax_age.set_title(
+    "Sarita's Trade Area Skews Younger Than the U.S.",
+    fontweight="bold",
+    fontsize=14
+)
+
+ax_age.set_xlabel("")
+ax_age.set_ylabel("Share of Population Age 15+ (%)")
+ax_age.set_ylim(0, 105)
+
+ax_age.grid(axis="y", linestyle="--", alpha=0.3)
+ax_age.set_axisbelow(True)
+
+ax_age.legend(
+    title="Age Group",
+    bbox_to_anchor=(1.02, 1),
+    loc="upper left"
+)
+
+# Highlight selected x-axis tick label
+x_labels = ax_age.get_xticklabels()
+plt.xticks(rotation=0)
+if 0 <= highlight_idx < len(x_labels):
+    x_labels[highlight_idx].set_color("#e74c3c")
+    x_labels[highlight_idx].set_fontweight("bold")
+
+plt.tight_layout()
+st.pyplot(fig_age)
 
 # --- Household Income Distribution Section ---
 st.subheader("Household Income Distribution Compared with U.S. Average")
