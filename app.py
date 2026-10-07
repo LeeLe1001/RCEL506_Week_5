@@ -71,6 +71,89 @@ age_pct = (age_grouped / age_grouped.sum()) * 100
 # 5. Display comparison chart (Selected Radius vs USA)
 st.bar_chart(age_pct)
 
+# --- Household Income Distribution Section ---
+st.subheader("Household Income Distribution Compared with U.S. Average")
+
+# 1. Filter dataset for B19001 attributes
+income_df = df[df["Attribute"].str.contains(r"\[B19001\]", regex=True, na=False)].copy()
+
+# 2. Map income groups matching notebook logic
+def income_group(attribute):
+    if any(x in attribute for x in [
+        "Less than $10,000",
+        "$10,000 to $14,999",
+        "$15,000 to $19,999",
+        "$20,000 to $24,999",
+        "$25,000 to $29,999",
+        "$30,000 to $34,999"
+    ]):
+        return "<$35k"
+    elif any(x in attribute for x in [
+        "$35,000 to $39,999",
+        "$40,000 to $44,999",
+        "$45,000 to $49,999",
+        "$50,000 to $59,999",
+        "$60,000 to $74,999"
+    ]):
+        return "$35k–$74,999"
+    elif any(x in attribute for x in [
+        "$75,000 to $99,999",
+        "$100,000 to $124,999",
+        "$125,000 to $149,999"
+    ]):
+        return "$75k–$149,999"
+    else:
+        return "$150k+"
+
+income_df["Income Group"] = income_df["Attribute"].apply(income_group)
+
+# 3. Aggregate totals across 1-6 miles and USA, reindex order
+radius_cols = [f"{r} mile radius" for r in range(1, 7)]
+income_grouped = income_df.groupby("Income Group")[radius_cols + ["USA"]].sum()
+income_grouped = income_grouped.reindex(["<$35k", "$35k–$74,999", "$75k–$149,999", "$150k+"])
+
+# 4. Calculate percentage point differences from USA across 1 to 6 miles
+income_vs_usa = income_grouped[radius_cols].subtract(income_grouped["USA"], axis=0).T
+income_vs_usa.index = ["1 mile"] + [f"{r} miles" for r in range(2, 7)]
+
+# 5. Plot grouped bar chart highlighting the active slider radius
+fig_inc, ax_inc = plt.subplots(figsize=(10, 6))
+income_vs_usa.plot(kind="bar", width=0.75, ax=ax_inc)
+
+highlight_idx = radius - 1
+
+# Highlight bars for selected radius
+for container in ax_inc.containers:
+    for bar_idx, bar in enumerate(container):
+        if bar_idx == highlight_idx:
+            bar.set_edgecolor("#e74c3c")
+            bar.set_linewidth(2.2)
+
+    ax_inc.bar_label(
+        container,
+        fmt="%+.1f pp",
+        padding=3,
+        fontsize=8
+    )
+
+ax_inc.axhline(0, linewidth=1, color="black")
+ax_inc.set_title("Household Income Distribution Compared with U.S. Average", fontweight="bold")
+ax_inc.set_xlabel("")
+ax_inc.set_ylabel("Difference from U.S. Average (percentage points)")
+ax_inc.grid(axis="y", linestyle="--", alpha=0.4)
+ax_inc.set_axisbelow(True)
+ax_inc.legend(title="Household Income")
+
+# Highlight selected x-axis tick label
+x_labels = ax_inc.get_xticklabels()
+if 0 <= highlight_idx < len(x_labels):
+    x_labels[highlight_idx].set_color("#e74c3c")
+    x_labels[highlight_idx].set_fontweight("bold")
+
+plt.xticks(rotation=0)
+plt.tight_layout()
+st.pyplot(fig_inc)
+
 # --- Hispanic & Spanish-Speaking Concentration Section ---
 st.subheader("Demographic Concentration Above U.S. Average")
 
