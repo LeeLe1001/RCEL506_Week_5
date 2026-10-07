@@ -1,4 +1,5 @@
 import folium
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
@@ -69,3 +70,80 @@ age_pct = (age_grouped / age_grouped.sum()) * 100
 
 # 5. Display comparison chart (Selected Radius vs USA)
 st.bar_chart(age_pct)
+
+# --- Hispanic & Spanish-Speaking Concentration Section ---
+st.subheader("Demographic Concentration Above U.S. Average")
+
+# 1. Filter Hispanic origin and Spanish language attributes from notebook logic
+demo_rows = df[
+    df["Attribute"].str.contains(
+        r"Hispanic or Latino Origin|Language Spoken at Home \| Spanish",
+        regex=True,
+        na=False,
+    )
+].copy()
+
+def get_metric_name(attr):
+    if "Hispanic" in attr:
+        return "Hispanic / Latino (%)"
+    elif "Spanish" in attr:
+        return "Spanish Spoken at Home (%)"
+    return attr
+
+demo_rows["Metric"] = demo_rows["Attribute"].apply(get_metric_name)
+
+radius_cols = [f"{r} mile radius" for r in range(1, 7)]
+cols_to_use = ["Metric"] + radius_cols + ["USA"]
+
+demo_df = demo_rows[cols_to_use].set_index("Metric").T
+
+# 2. Calculate percentage points above U.S. average across 1-6 miles
+usa_vals = demo_df.loc["USA"].astype(float)
+demo_vs_usa = demo_df.loc[radius_cols].astype(float).sub(usa_vals, axis=1)
+
+demo_plot = demo_vs_usa.copy()
+demo_plot.index = ["1 mile"] + [f"{r} miles" for r in range(2, 7)]
+
+# 3. Create line plot highlighting the active slider radius
+fig, ax = plt.subplots(figsize=(9, 5))
+demo_plot.plot(kind="line", marker="o", linewidth=2.5, ax=ax)
+
+# Highlight active radius with vertical guide line and larger red markers
+highlight_idx = radius - 1
+ax.axvline(
+    x=highlight_idx,
+    color="#e74c3c",
+    linestyle="--",
+    linewidth=1.8,
+    alpha=0.75,
+    label=f"Selected Radius ({radius} mile{'s' if radius > 1 else ''})",
+)
+
+for column in demo_plot.columns:
+    for x_idx, y_val in enumerate(demo_plot[column]):
+        if x_idx == highlight_idx:
+            ax.scatter(x_idx, y_val, color="#e74c3c", s=110, zorder=5)
+            ax.text(
+                x_idx,
+                y_val + 1.5,
+                f"+{y_val:.1f} pp",
+                ha="center",
+                fontsize=9.5,
+                fontweight="bold",
+                color="#e74c3c",
+            )
+        else:
+            ax.text(x_idx, y_val + 1.5, f"+{y_val:.1f} pp", ha="center", fontsize=9)
+
+ax.axhline(0, linewidth=1, color="black")
+ax.set_ylim(bottom=30, top=max(demo_plot.max()) + 8)
+
+ax.set_title("Local Hispanic and Spanish-Speaking Concentration Above U.S. Average", fontweight="bold")
+ax.set_xlabel("Distance from Sarita's")
+ax.set_ylabel("Percentage Points Above U.S. Average")
+ax.grid(axis="y", linestyle="--", alpha=0.35)
+ax.set_axisbelow(True)
+ax.legend(title="", loc="upper right")
+
+plt.tight_layout()
+st.pyplot(fig)
